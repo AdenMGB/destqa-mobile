@@ -10,7 +10,7 @@ pub fn force_reload(app: tauri::AppHandle) {
     app.emit("reload", "hi".to_string()).unwrap();
 }
 
-/// True if a saved login session exists.
+/// True if a saved login session exists.
 #[tauri::command]
 pub fn check_session_exists() -> bool {
     session::Session::exists()
@@ -66,30 +66,21 @@ pub async fn create_login_window(app: tauri::AppHandle, url: String) -> Result<(
         }
     };
 
-    // Spawn the login window
+    // Spawn the login window with mobile-compatible configuration
     WebviewWindowBuilder::new(&app, "seqta_login", WebviewUrl::External(full_url.clone()))
-        .title("SEQTA Login")
-        .inner_size(900.0, 700.0)
         .build()
         .map_err(|e| format!("Failed to build window: {}", e))?;
 
     // Clone handles for async block
     let app_handle_clone = app.clone();
 
-    let mut counter = 0; // Creates a counter so that we don't quit authentication upon the first request (which redirects)
-                         // Start polling in a background task
+    let mut counter = 0;
     tauri::async_runtime::spawn(async move {
         for _ in 0..1920 {
-            // Poll for 1920 seconds max
-            // Wait 1 second between polls
             sleep(Duration::from_secs(1)).await;
 
-            // Construct the full URL with the page parameter
-
-            // Try to get cookies from the login window
             if let Some(webview) = app_handle_clone.get_webview_window("seqta_login") {
                 if counter > 0 {
-                    // Check if the auth has finished through url
                     match webview.url() {
                         Ok(current_url) => {
                             println!("Current URL from webview: {}", current_url);
@@ -122,10 +113,9 @@ pub async fn create_login_window(app: tauri::AppHandle, url: String) -> Result<(
                                             let value = cookie.value().to_string();
                                             let base_url = http_url.clone();
 
-                                            // Convert all cookies to our storage format
                                             let additional_cookies = cookies
                                                 .iter()
-                                                .filter(|c| c.name() != "JSESSIONID") // Skip JSESSIONID as it's stored separately
+                                                .filter(|c| c.name() != "JSESSIONID")
                                                 .filter(|c| {
                                                     if let Some(cookie_domain) = c.domain() {
                                                         if let Some(host) = parsed_url.host_str() {
@@ -139,7 +129,7 @@ pub async fn create_login_window(app: tauri::AppHandle, url: String) -> Result<(
                                                     } else {
                                                         false
                                                     }
-                                                }) // only include cookies for the same domain
+                                                })
                                                 .map(|c| session::Cookie {
                                                     name: c.name().to_string(),
                                                     value: c.value().to_string(),
@@ -148,7 +138,6 @@ pub async fn create_login_window(app: tauri::AppHandle, url: String) -> Result<(
                                                 })
                                                 .collect();
 
-                                            // Save session with all cookies
                                             let session = session::Session {
                                                 base_url,
                                                 jsessionid: value,
@@ -159,9 +148,10 @@ pub async fn create_login_window(app: tauri::AppHandle, url: String) -> Result<(
                                                 eprintln!("Failed to save session: {}", err);
                                             }
 
-                                            let _ = webview.close();
+                                            // On mobile, we don't need to explicitly close/hide the window
+                                            // as it will be handled by the platform
                                             force_reload(app);
-                                            return; // Stop polling once found
+                                            return;
                                         } else {
                                             println!("Cookie has expired!");
                                         }
@@ -175,7 +165,7 @@ pub async fn create_login_window(app: tauri::AppHandle, url: String) -> Result<(
                     }
                 }
             }
-            counter += 1; // increment the counter at the end of the loop
+            counter += 1;
         }
 
         eprintln!("JSESSIONID not found within timeout");

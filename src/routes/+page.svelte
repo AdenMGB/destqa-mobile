@@ -13,6 +13,9 @@
     BookOpen,
     BuildingOffice,
     ArrowTopRightOnSquare,
+    CalendarDays,
+    Eye,
+    EyeSlash,
   } from "svelte-hero-icons";
 
   const studentId = 69; //! literally changes nothing but was used in the original seqta code.
@@ -60,6 +63,14 @@
   let weatherError = $state("");
 
   let selectedTab = $state<'list' | 'board'>('list');
+
+  // Responsive grid columns based on screen size
+  const gridCols = $derived({
+    sm: 'grid-cols-1',
+    md: 'grid-cols-2',
+    lg: 'grid-cols-3',
+    xl: 'grid-cols-4'
+  });
 
   function formatDate(date: Date): string {
     const y = date.getFullYear();
@@ -410,6 +421,16 @@
 	}
 
 	/* Add any additional styles here */
+
+	/* Add touch-friendly hover states for mobile */
+	@media (hover: none) {
+		button:hover, a:hover {
+			background-color: transparent !important;
+		}
+		button:active, a:active {
+			background-color: rgb(51 65 85) !important;
+		}
+	}
 </style>
 
 <div
